@@ -1,9 +1,10 @@
 import re
 import time
+import os
 
 import requests
 import logging as logme
-
+from fake_useragent import UserAgent
 
 class TokenExpiryException(Exception):
     def __init__(self, msg):
@@ -14,20 +15,28 @@ class RefreshTokenException(Exception):
     def __init__(self, msg):
         super().__init__(msg)
         
-
 class Token:
     def __init__(self, config):
         self._session = requests.Session()
-        self._session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:78.0) Gecko/20100101 Firefox/78.0'})
+        self._session.headers.update({"User-Agent": self.get_random_agent()})
         self.config = config
         self._retries = 5
         self._timeout = 10
-        self.url = 'https://twitter.com'
+        self._session.headers.update(self.get_bearer_token())
+        self.url = 'https://api.twitter.com/1.1/guest/activate.json'
 
+    def get_bearer_token(self):
+        return {'authorization': 
+                    os.environ.get('BEARER_TOKEN',
+                     'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA')}
+
+    def get_random_agent(self):
+        return UserAgent().random
+        
     def _request(self):
         for attempt in range(self._retries + 1):
             # The request is newly prepared on each retry because of potential cookie updates.
-            req = self._session.prepare_request(requests.Request('GET', self.url))
+            req = self._session.prepare_request(requests.Request('POST', self.url))
             logme.debug(f'Retrieving {req.url}')
             try:
                 r = self._session.send(req, allow_redirects=True, timeout=self._timeout)
@@ -60,10 +69,10 @@ class Token:
     def refresh(self):
         logme.debug('Retrieving guest token')
         res = self._request()
-        match = re.search(r'\("gt=(\d+);', res.text)
-        if match:
+        res_json = res.json()
+        if "guest_token" in res_json.keys():
             logme.debug('Found guest token in HTML')
-            self.config.Guest_token = str(match.group(1))
+            self.config.Guest_token = res_json["guest_token"]
         else:
             self.config.Guest_token = None
             raise RefreshTokenException('Could not find the Guest token in HTML')

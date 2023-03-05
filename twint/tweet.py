@@ -20,13 +20,11 @@ class tweet:
 def utc_to_local(utc_dt):
     return utc_dt.replace(tzinfo=timezone.utc).astimezone(tz=None)
 
-
 Tweet_formats = {
     'datetime': '%Y-%m-%d %H:%M:%S %Z',
     'datestamp': '%Y-%m-%d',
     'timestamp': '%H:%M:%S'
 }
-
 
 def _get_mentions(tw):
     """Extract mentions from tweet
